@@ -313,6 +313,7 @@
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 1px;
+      word-break: break-word;
     }
 
     .loader {
@@ -448,7 +449,7 @@
       <i class="fas fa-download"></i>
     </div>
     <h1 class="title">PROxABDULLAH</h1>
-    <p class="subtitle">NEO DOWNLOADER // v3.0</p>
+    <p class="subtitle">NEO DOWNLOADER // v3.1</p>
   </div>
 
   <div class="input-group">
@@ -565,13 +566,13 @@
       // New API endpoint
       const apiUrl = `https://api-faa.my.id/faa/aio?url=${encodeURIComponent(rawUrl)}`;
       
-      // Use CORS proxy to avoid any possible blocking
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+      // Use a more reliable CORS proxy
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
       
       const response = await fetch(proxyUrl);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -579,12 +580,13 @@
       setLoading(false);
 
       // Check API response structure
-      if (!data.status || data.result.error === true) {
+      if (!data.status || (data.result && data.result.error === true)) {
         setError('❌ FETCH_FAILED: UNSUPPORTED LINK OR API ERROR');
+        console.error('API error response:', data);
         return;
       }
 
-      const medias = data.result.medias || [];
+      const medias = data.result?.medias || [];
       if (medias.length === 0) {
         setError('❌ NO_MEDIA_FOUND');
         return;
@@ -602,7 +604,6 @@
           </div>
         `;
       } else if (data.result.thumbnail) {
-        // fallback: show thumbnail if no preview video
         htmlOutput += `
           <div class="media-card">
             <h3><i class="fas fa-image"></i> THUMBNAIL</h3>
@@ -618,7 +619,7 @@
       if (videoFormats.length > 0) {
         let videoBlock = `<div class="media-card"><h3><i class="fas fa-video"></i> VIDEO_STREAMS</h3><div class="download-links">`;
         videoFormats.forEach(v => {
-          const label = v.label || v.quality || `${v.width}x${v.height}`;
+          const label = v.label || v.quality || `${v.width || ''}x${v.height || ''}`.replace(/^x$/, '') || 'video';
           videoBlock += `
             <a class="dl-link" href="${v.url}" target="_blank" rel="noopener noreferrer">
               <span class="quality-badge">${label}</span> DOWNLOAD
@@ -632,7 +633,7 @@
       if (audioFormats.length > 0) {
         let audioBlock = `<div class="media-card"><h3><i class="fas fa-headphones"></i> AUDIO_MP3</h3><div class="download-links">`;
         audioFormats.forEach(a => {
-          const label = a.label || a.quality || `${a.bitrate}bps`;
+          const label = a.label || a.quality || `${Math.round(a.bitrate/1000) || ''}kbps`.replace(/^kbps$/, 'audio');
           audioBlock += `
             <a class="dl-link" href="${a.url}" target="_blank" rel="noopener noreferrer">
               🎧 ${label}
@@ -648,8 +649,8 @@
 
     } catch (err) {
       setLoading(false);
-      console.error(err);
-      setError('🌐 NETWORK_ERROR: CORS OR API DOWN. TRY AGAIN LATER.');
+      console.error('Fetch error:', err);
+      setError(`🌐 ${err.message || 'NETWORK ERROR'}. TRY ANOTHER LINK OR REFRESH.`);
     }
   }
 
