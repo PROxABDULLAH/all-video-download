@@ -448,13 +448,13 @@
       <i class="fas fa-download"></i>
     </div>
     <h1 class="title">PROxABDULLAH</h1>
-    <p class="subtitle">NEO DOWNLOADER // v2.0</p>
+    <p class="subtitle">NEO DOWNLOADER // v3.0</p>
   </div>
 
   <div class="input-group">
     <label class="input-label">> VIDEO_URL</label>
     <div class="url-wrapper">
-      <input type="text" id="urlInput" class="input-field" placeholder="https://instagram.com/p/... | tiktok | youtube" />
+      <input type="text" id="urlInput" class="input-field" placeholder="https://youtube.com/... | tiktok | instagram" />
       <button class="paste-btn" id="pasteBtn"><i class="fas fa-paste"></i> PASTE</button>
     </div>
   </div>
@@ -468,7 +468,7 @@
   <div id="resultsContainer" class="code-display"></div>
 
   <div class="footer">
-    <p>PROxABDULLAH // SECURE_DOWNLOAD_API</p>
+    <p>PROxABDULLAH // POWERED BY FAA-API</p>
   </div>
 </div>
 
@@ -562,11 +562,11 @@
     setLoading(true);
 
     try {
-      // Original API (may have CORS issues)
-      const directApi = `https://omegatech-api.dixonomega.tech/api/download/all?url=${encodeURIComponent(rawUrl)}`;
+      // New API endpoint
+      const apiUrl = `https://api-faa.my.id/faa/aio?url=${encodeURIComponent(rawUrl)}`;
       
-      // Use a CORS proxy to bypass restrictions
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directApi)}`;
+      // Use CORS proxy to avoid any possible blocking
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
       
       const response = await fetch(proxyUrl);
       
@@ -578,29 +578,50 @@
 
       setLoading(false);
 
-      if (!data.success) {
+      // Check API response structure
+      if (!data.status || data.result.error === true) {
         setError('❌ FETCH_FAILED: UNSUPPORTED LINK OR API ERROR');
+        return;
+      }
+
+      const medias = data.result.medias || [];
+      if (medias.length === 0) {
+        setError('❌ NO_MEDIA_FOUND');
         return;
       }
 
       let htmlOutput = '';
 
-      if (data.result.video && data.result.video.length && data.result.video[0].url) {
+      // Find a video for preview (first video in list)
+      const previewVideo = medias.find(m => m.type === 'video');
+      if (previewVideo && previewVideo.url) {
         htmlOutput += `
           <div class="media-card">
             <h3><i class="fas fa-play-circle"></i> PREVIEW</h3>
-            <video controls src="${data.result.video[0].url}" controlsList="nodownload"></video>
+            <video controls src="${previewVideo.url}" controlsList="nodownload"></video>
+          </div>
+        `;
+      } else if (data.result.thumbnail) {
+        // fallback: show thumbnail if no preview video
+        htmlOutput += `
+          <div class="media-card">
+            <h3><i class="fas fa-image"></i> THUMBNAIL</h3>
+            <img src="${data.result.thumbnail}" style="width:100%; border-radius:8px; margin-top:8px;" alt="thumbnail">
           </div>
         `;
       }
 
-      if (data.result.video && data.result.video.length) {
+      // Separate video and audio formats
+      const videoFormats = medias.filter(m => m.type === 'video');
+      const audioFormats = medias.filter(m => m.type === 'audio');
+
+      if (videoFormats.length > 0) {
         let videoBlock = `<div class="media-card"><h3><i class="fas fa-video"></i> VIDEO_STREAMS</h3><div class="download-links">`;
-        data.result.video.forEach(v => {
-          const quality = v.quality || 'standard';
+        videoFormats.forEach(v => {
+          const label = v.label || v.quality || `${v.width}x${v.height}`;
           videoBlock += `
             <a class="dl-link" href="${v.url}" target="_blank" rel="noopener noreferrer">
-              <span class="quality-badge">${quality}</span> DOWNLOAD
+              <span class="quality-badge">${label}</span> DOWNLOAD
             </a>
           `;
         });
@@ -608,15 +629,18 @@
         htmlOutput += videoBlock;
       }
 
-      if (data.result.audio && data.result.audio.length) {
+      if (audioFormats.length > 0) {
         let audioBlock = `<div class="media-card"><h3><i class="fas fa-headphones"></i> AUDIO_MP3</h3><div class="download-links">`;
-        audioBlock += `<a class="dl-link" href="${data.result.audio[0].url}" target="_blank">🎧 EXTRACT_MP3</a>`;
+        audioFormats.forEach(a => {
+          const label = a.label || a.quality || `${a.bitrate}bps`;
+          audioBlock += `
+            <a class="dl-link" href="${a.url}" target="_blank" rel="noopener noreferrer">
+              🎧 ${label}
+            </a>
+          `;
+        });
         audioBlock += `</div></div>`;
         htmlOutput += audioBlock;
-      }
-
-      if (!htmlOutput) {
-        htmlOutput = `<div class="media-card"><i class="fas fa-exclamation-triangle"></i> NO_MEDIA_FOUND</div>`;
       }
 
       resultsContainer.innerHTML = htmlOutput;
@@ -625,7 +649,7 @@
     } catch (err) {
       setLoading(false);
       console.error(err);
-      setError('🌐 NETWORK_ERROR: CORS OR API DOWN. TRY A DIFFERENT LINK OR REFRESH.');
+      setError('🌐 NETWORK_ERROR: CORS OR API DOWN. TRY AGAIN LATER.');
     }
   }
 
