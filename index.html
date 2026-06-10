@@ -100,7 +100,6 @@
       }
     }
 
-    /* Share button top right */
     .share-btn {
       position: absolute;
       top: 15px;
@@ -440,7 +439,6 @@
 <body>
 
 <div class="container">
-  <!-- Share button top right -->
   <button class="share-btn" id="shareBtn" title="Share this tool">
     <i class="fas fa-share-nodes"></i>
   </button>
@@ -497,7 +495,6 @@
     errorDiv.innerText = msg || '';
   }
 
-  // URL validation function
   function isValidUrl(string) {
     try {
       const url = new URL(string);
@@ -522,12 +519,10 @@
     }
   }
 
-  // Share functionality (copies current page URL)
   async function shareWebsite() {
     const linkToShare = window.location.href;
     try {
       await navigator.clipboard.writeText(linkToShare);
-      // Visual feedback on share button
       const originalIcon = shareBtn.innerHTML;
       shareBtn.innerHTML = '<i class="fas fa-check"></i>';
       shareBtn.style.background = 'var(--success-color)';
@@ -545,14 +540,12 @@
       setTimeout(() => setError(''), 2000);
     } catch (err) {
       setError('⚠️ SHARE_FAILED');
-      console.error(err);
     }
   }
 
   async function fetchMedia() {
     const rawUrl = urlInput.value.trim();
     
-    // Validate URL format first
     if (!rawUrl) {
       setError('⛔ INPUT_REQUIRED: ENTER VALID URL');
       return;
@@ -569,8 +562,18 @@
     setLoading(true);
 
     try {
-      const apiEndpoint = `https://omegatech-api.dixonomega.tech/api/download/all?url=${encodeURIComponent(rawUrl)}`;
-      const response = await fetch(apiEndpoint);
+      // Original API (may have CORS issues)
+      const directApi = `https://omegatech-api.dixonomega.tech/api/download/all?url=${encodeURIComponent(rawUrl)}`;
+      
+      // Use a CORS proxy to bypass restrictions
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directApi)}`;
+      
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
       const data = await response.json();
 
       setLoading(false);
@@ -621,8 +624,8 @@
 
     } catch (err) {
       setLoading(false);
-      setError('🌐 NETWORK_ERROR: CHECK CONNECTION OR API STATUS');
       console.error(err);
+      setError('🌐 NETWORK_ERROR: CORS OR API DOWN. TRY A DIFFERENT LINK OR REFRESH.');
     }
   }
 
